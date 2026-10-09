@@ -1,0 +1,363 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>真实模拟人生</title>
+  <style>
+    :root {
+      color-scheme: light dark;
+    }
+    body {
+      margin: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+      background: #111827;
+      color: #f3f4f6;
+    }
+    .container {
+      max-width: 900px;
+      margin: 0 auto;
+      padding: 24px 16px 48px;
+    }
+    h1 {
+      margin: 0 0 8px;
+      font-size: 2rem;
+    }
+    .subtitle {
+      margin: 0 0 20px;
+      color: #cbd5e1;
+    }
+    .panel {
+      background: #1f2937;
+      border: 1px solid #374151;
+      border-radius: 12px;
+      padding: 16px;
+      margin-bottom: 16px;
+    }
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+      gap: 10px;
+    }
+    .stat {
+      background: #111827;
+      border: 1px solid #374151;
+      border-radius: 10px;
+      padding: 10px;
+    }
+    .stat .label {
+      font-size: 12px;
+      color: #9ca3af;
+      margin-bottom: 4px;
+    }
+    .stat .value {
+      font-size: 18px;
+      font-weight: 700;
+    }
+    .actions {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 10px;
+    }
+    button {
+      width: 100%;
+      padding: 10px 12px;
+      border: 1px solid #4b5563;
+      border-radius: 10px;
+      background: #2563eb;
+      color: white;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    button:hover {
+      filter: brightness(1.05);
+    }
+    button:disabled {
+      background: #475569;
+      cursor: not-allowed;
+      opacity: 0.7;
+    }
+    #log {
+      max-height: 320px;
+      overflow: auto;
+      line-height: 1.5;
+      font-size: 14px;
+      white-space: pre-line;
+    }
+    .footer {
+      color: #94a3b8;
+      font-size: 13px;
+    }
+    .restart-btn {
+      background: #16a34a;
+      margin-top: 12px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>真实模拟人生</h1>
+    <p class="subtitle">从 18 岁开始，每回合代表 1 年。平衡学历、经历、资源和感情，走出你的人生。</p>
+
+    <div class="panel">
+      <div class="stats">
+        <div class="stat"><div class="label">年龄</div><div class="value" id="age"></div></div>
+        <div class="stat"><div class="label">学历</div><div class="value" id="education"></div></div>
+        <div class="stat"><div class="label">经历（经验值）</div><div class="value" id="experience"></div></div>
+        <div class="stat"><div class="label">资源（财富+人脉）</div><div class="value" id="resources"></div></div>
+        <div class="stat"><div class="label">感情</div><div class="value" id="relationship"></div></div>
+        <div class="stat"><div class="label">幸福感</div><div class="value" id="happiness"></div></div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <h3>年度选择</h3>
+      <div class="actions" id="actions"></div>
+      <button id="restart" class="restart-btn" style="display:none;">重新开始</button>
+    </div>
+
+    <div class="panel">
+      <h3>人生记录</h3>
+      <div id="log"></div>
+    </div>
+
+    <div class="footer">提示：任何指标归零都可能触发人生危机；65 岁时自动结算人生结局。</div>
+  </div>
+
+  <script>
+    const educationLevels = [
+      { min: 0, name: "高中" },
+      { min: 25, name: "大专" },
+      { min: 45, name: "本科" },
+      { min: 65, name: "硕士" },
+      { min: 85, name: "博士" }
+    ];
+
+    const actions = [
+      {
+        key: "study",
+        label: "📚 深造学习",
+        apply: (s) => ({
+          educationPoints: rand(8, 14),
+          experience: rand(1, 3),
+          resources: -rand(2, 6),
+          relationship: -rand(0, 2),
+          happiness: rand(-1, 3),
+          log: "你把重心放在学习，能力稳步提升。"
+        })
+      },
+      {
+        key: "work",
+        label: "💼 投入工作",
+        apply: (s) => ({
+          educationPoints: rand(0, 2),
+          experience: rand(7, 12),
+          resources: rand(7, 12),
+          relationship: -rand(0, 2),
+          happiness: rand(-2, 2),
+          log: "你全力工作，积累了不少经验和资源。"
+        })
+      },
+      {
+        key: "social",
+        label: "🤝 社交拓展",
+        apply: (s) => ({
+          educationPoints: rand(0, 1),
+          experience: rand(3, 6),
+          resources: rand(3, 7),
+          relationship: rand(6, 11),
+          happiness: rand(1, 5),
+          log: "你经营关系网络，机会和感情都有所提升。"
+        })
+      },
+      {
+        key: "startup",
+        label: "🚀 创业冒险",
+        apply: (s) => {
+          const success = Math.random() < Math.min(0.35 + s.experience / 220 + s.resources / 260, 0.82);
+          if (success) {
+            return {
+              educationPoints: rand(0, 2),
+              experience: rand(8, 14),
+              resources: rand(12, 22),
+              relationship: rand(-2, 3),
+              happiness: rand(2, 8),
+              log: "创业成功！你抓住了风口，资源大涨。"
+            };
+          }
+          return {
+            educationPoints: 0,
+            experience: rand(5, 8),
+            resources: -rand(8, 16),
+            relationship: -rand(1, 4),
+            happiness: -rand(2, 8),
+            log: "创业受挫，交了不少学费。"
+          };
+        }
+      },
+      {
+        key: "balance",
+        label: "🧘 平衡生活",
+        apply: (s) => ({
+          educationPoints: rand(1, 3),
+          experience: rand(2, 5),
+          resources: rand(1, 4),
+          relationship: rand(3, 6),
+          happiness: rand(3, 7),
+          log: "你放慢节奏，照顾生活质量和亲密关系。"
+        })
+      }
+    ];
+
+    let state = {};
+
+    function rand(min, max) {
+      return Math.floor(Math.random() * (max - min + 1)) + min;
+    }
+
+    function clamp(v, min, max) {
+      return Math.max(min, Math.min(max, v));
+    }
+
+    function getEducationName(points) {
+      let result = educationLevels[0].name;
+      for (const level of educationLevels) {
+        if (points >= level.min) result = level.name;
+      }
+      return result;
+    }
+
+    function updateView() {
+      document.getElementById("age").textContent = `${state.age} 岁`;
+      document.getElementById("education").textContent = `${getEducationName(state.educationPoints)}（${state.educationPoints}）`;
+      document.getElementById("experience").textContent = state.experience;
+      document.getElementById("resources").textContent = state.resources;
+      document.getElementById("relationship").textContent = state.relationship;
+      document.getElementById("happiness").textContent = state.happiness;
+      document.getElementById("log").textContent = state.logs.join("\n");
+    }
+
+    function addLog(message) {
+      state.logs.unshift(`【${state.age}岁】${message}`);
+      state.logs = state.logs.slice(0, 60);
+    }
+
+    function applyYearlyEvent() {
+      const roll = Math.random();
+      if (roll < 0.16) {
+        state.resources += 6;
+        state.relationship += 2;
+        addLog("你遇到贵人，获得新的机会和支持。");
+      } else if (roll < 0.30) {
+        state.resources -= 6;
+        state.happiness -= 2;
+        addLog("生活突发开销，资源受到冲击。");
+      } else if (roll < 0.43) {
+        state.relationship -= 5;
+        state.happiness -= 4;
+        addLog("关系发生冲突，你需要时间修复。");
+      } else if (roll < 0.56) {
+        state.happiness += 5;
+        addLog("你找到热爱的方向，状态明显回升。");
+      }
+    }
+
+    function normalizeState() {
+      state.educationPoints = clamp(state.educationPoints, 0, 100);
+      state.experience = clamp(state.experience, 0, 999);
+      state.resources = clamp(state.resources, 0, 999);
+      state.relationship = clamp(state.relationship, 0, 100);
+      state.happiness = clamp(state.happiness, 0, 100);
+    }
+
+    function checkEnd() {
+      if (state.age >= 65) {
+        endGame("退休结算");
+        return true;
+      }
+      if (state.resources === 0 && state.happiness < 25) {
+        endGame("资源危机");
+        return true;
+      }
+      if (state.relationship === 0 && state.happiness < 25) {
+        endGame("情感危机");
+        return true;
+      }
+      return false;
+    }
+
+    function endingText(reason) {
+      const score = state.educationPoints + state.experience + state.resources + state.relationship + state.happiness;
+      if (reason === "退休结算") {
+        if (score >= 360) return "你在事业、资源和感情上都达到了高水平，人生非常圆满。";
+        if (score >= 280) return "你的人生整体稳定，有成就也有温度，属于高质量人生。";
+        if (score >= 200) return "你经历了不少起伏，但仍积累了可靠的生活基础。";
+        return "你走完了属于自己的路，虽然遗憾不少，但经历本身就是财富。";
+      }
+      if (reason === "资源危机") return "长期资源不足叠加压力，让你不得不提前结束这段人生模拟。";
+      return "感情与状态持续下滑，你选择停下来重整方向。";
+    }
+
+    function endGame(reason) {
+      disableActions(true);
+      addLog(`人生结局：${reason}。${endingText(reason)}`);
+      document.getElementById("restart").style.display = "block";
+      updateView();
+    }
+
+    function disableActions(disabled) {
+      for (const btn of document.querySelectorAll(".action-btn")) {
+        btn.disabled = disabled;
+      }
+    }
+
+    function onChoose(action) {
+      state.age += 1;
+      const delta = action.apply(state);
+      state.educationPoints += delta.educationPoints;
+      state.experience += delta.experience;
+      state.resources += delta.resources;
+      state.relationship += delta.relationship;
+      state.happiness += delta.happiness;
+      addLog(delta.log);
+
+      applyYearlyEvent();
+      normalizeState();
+      updateView();
+      checkEnd();
+    }
+
+    function renderActions() {
+      const box = document.getElementById("actions");
+      box.innerHTML = "";
+      for (const action of actions) {
+        const btn = document.createElement("button");
+        btn.className = "action-btn";
+        btn.textContent = action.label;
+        btn.addEventListener("click", () => onChoose(action));
+        box.appendChild(btn);
+      }
+    }
+
+    function resetGame() {
+      state = {
+        age: 18,
+        educationPoints: 18,
+        experience: 6,
+        resources: 22,
+        relationship: 45,
+        happiness: 52,
+        logs: []
+      };
+      addLog("你刚满18岁，正式开启独立人生。");
+      document.getElementById("restart").style.display = "none";
+      disableActions(false);
+      updateView();
+    }
+
+    document.getElementById("restart").addEventListener("click", resetGame);
+    renderActions();
+    resetGame();
+  </script>
+</body>
+</html>
